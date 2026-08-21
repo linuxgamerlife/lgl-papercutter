@@ -20,9 +20,11 @@
   <releases>
     <release version="0.1.0" date="2026-08-20">
       <description>
-        <p>Initial development scaffold.</p>
+        <p>
+          Initial release with visual wallpaper composition, resolution
+          presets, verified backups, Save As, and in-app restoration.
+        </p>
       </description>
     </release>
   </releases>
 </component>
-

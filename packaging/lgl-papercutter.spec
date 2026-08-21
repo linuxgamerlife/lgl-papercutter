@@ -10,7 +10,9 @@ URL:            https://github.com/linuxgamerlife/lgl-papercutter
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  cmake >= 3.20
+BuildRequires:  cmake-rpm-macros
 BuildRequires:  gcc-c++
+BuildRequires:  ninja-build
 BuildRequires:  qt6-qtbase-devel >= 6.5
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
@@ -45,6 +47,7 @@ appstream-util validate-relax --nonet \
 
 %files
 %license LICENSE
+%doc README.md
 %{_bindir}/lgl-papercutter
 %{_datadir}/applications/com.linuxgamerlife.lgl-papercutter.desktop
 %{_datadir}/metainfo/com.linuxgamerlife.lgl-papercutter.metainfo.xml
