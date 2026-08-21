@@ -2,6 +2,8 @@ NAME := lgl-papercutter
 SPEC := packaging/$(NAME).spec
 VERSION := $(shell awk '/^Version:/ { print $$2; exit }' $(SPEC))
 SOURCE_ARCHIVE := $(NAME)-$(VERSION).tar.gz
+SOURCE_FILES := .copr .github .gitignore CMakeLists.txt LICENSE Makefile README.md \
+	packaging src tests
 .DEFAULT_GOAL := srpm
 
 # COPR SCM passes its result directory as `outdir`. Local builds default to
@@ -13,9 +15,12 @@ RPMBUILD ?= rpmbuild
 
 source:
 	@test -n "$(VERSION)" || { echo "Could not read Version from $(SPEC)"; exit 1; }
-	git archive --format=tar.gz \
-		--prefix=$(NAME)-$(VERSION)/ \
-		--output=$(SOURCE_ARCHIVE).tmp HEAD
+	tar --create --gzip \
+		--file=$(SOURCE_ARCHIVE).tmp \
+		--sort=name \
+		--owner=0 --group=0 --numeric-owner \
+		--transform='s,^,$(NAME)-$(VERSION)/,' \
+		$(SOURCE_FILES)
 	mv $(SOURCE_ARCHIVE).tmp $(SOURCE_ARCHIVE)
 
 srpm: source
