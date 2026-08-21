@@ -1,5 +1,7 @@
 /build/
 /build-*/
+/result*/
+/rpmbuild*/
 /.cache/
 /compile_commands.json
 *.rpm
