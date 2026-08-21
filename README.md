@@ -4,7 +4,6 @@
 
 **A simple way to modify wallpapers to make them a better fit for your desktop.**
 
-[![CI](https://github.com/linuxgamerlife/lgl-papercutter/actions/workflows/ci.yml/badge.svg)](https://github.com/linuxgamerlife/lgl-papercutter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Fedora](https://img.shields.io/badge/Fedora-44-blue?logo=fedora&logoColor=white)](https://fedoraproject.org)
 [![Qt](https://img.shields.io/badge/Qt-6-green?logo=qt&logoColor=white)](https://www.qt.io)
