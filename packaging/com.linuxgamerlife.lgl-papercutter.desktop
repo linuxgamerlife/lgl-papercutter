@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=LGL Papercutter
+Comment=Compose wallpapers for your desktop resolution
+Exec=lgl-papercutter
+Icon=com.linuxgamerlife.lgl-papercutter
+Terminal=false
+Categories=Graphics;2DGraphics;RasterGraphics;
+Keywords=wallpaper;image;resize;crop;desktop;
+StartupNotify=true

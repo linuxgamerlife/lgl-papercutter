@@ -1,0 +1,13 @@
+/build/
+/build-*/
+/.cache/
+/compile_commands.json
+*.rpm
+*.tar.gz
+/docs/
+/MEMORY.md
+.idea/
+.vscode/
+*.user
+*.swp
+*~

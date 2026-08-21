@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  fedora-build:
+    runs-on: ubuntu-latest
+    container: fedora:44
+    timeout-minutes: 20
+
+    steps:
+      - name: Install tools
+        run: dnf install -y git cmake gcc-c++ qt6-qtbase-devel ImageMagick
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+
+      - name: Build
+        run: cmake --build build-ci --parallel 2
+
+      - name: Test
+        run: ctest --test-dir build-ci --output-on-failure

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.linuxgamerlife.lgl-papercutter</id>
+  <name>LGL Papercutter</name>
+  <summary>Compose wallpapers for your desktop resolution</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>
+      LGL Papercutter provides a visual, local workflow for positioning,
+      resizing, and fitting wallpapers to a chosen display resolution.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.linuxgamerlife.lgl-papercutter.desktop</launchable>
+  <developer id="com.linuxgamerlife">
+    <name>LinuxGamerLife</name>
+  </developer>
+  <url type="homepage">https://github.com/linuxgamerlife/lgl-papercutter</url>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-08-20">
+      <description>
+        <p>Initial development scaffold.</p>
+      </description>
+    </release>
+  </releases>
+</component>
+
