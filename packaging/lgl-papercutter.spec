@@ -5,13 +5,16 @@ Summary:        Compose wallpapers for a chosen desktop resolution
 
 License:        MIT
 URL:            https://github.com/linuxgamerlife/lgl-papercutter
-Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
+# Generated from the checked-out commit by `make source` or `make srpm`.
+# COPR SCM builds do not require a Git tag.
+Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  cmake >= 3.20
 BuildRequires:  gcc-c++
 BuildRequires:  qt6-qtbase-devel >= 6.5
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
+BuildRequires:  ImageMagick
 Requires:       qt6-qtbase >= 6.5
 Requires:       ImageMagick
 
@@ -23,7 +26,7 @@ Images are processed locally with ImageMagick. Originals are copied to the
 configured backup folder before a validated output atomically replaces them.
 
 %prep
-%autosetup
+%autosetup -n %{name}-%{version}
 
 %build
 %cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
@@ -45,7 +48,7 @@ appstream-util validate-relax --nonet \
 %{_bindir}/lgl-papercutter
 %{_datadir}/applications/com.linuxgamerlife.lgl-papercutter.desktop
 %{_datadir}/metainfo/com.linuxgamerlife.lgl-papercutter.metainfo.xml
-%{_datadir}/icons/hicolor/scalable/apps/com.linuxgamerlife.lgl-papercutter.svg
+%{_datadir}/icons/hicolor/512x512/apps/lgl-papercutter.png
 
 %changelog
 * Thu Aug 20 2026 LinuxGamerLife - 0.1.0-1

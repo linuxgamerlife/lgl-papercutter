@@ -61,8 +61,8 @@ install(FILES packaging/com.linuxgamerlife.lgl-papercutter.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES packaging/com.linuxgamerlife.lgl-papercutter.metainfo.xml
     DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
-install(FILES packaging/com.linuxgamerlife.lgl-papercutter.svg
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)
+install(FILES packaging/icons/hicolor/512x512/apps/lgl-papercutter.png
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/512x512/apps)
 
 if(BUILD_TESTING)
     find_package(Qt6 6.5 REQUIRED COMPONENTS Test)
