@@ -73,4 +73,7 @@ if(BUILD_TESTING)
     qt_add_executable(imageprocessor_test tests/imageprocessor_test.cpp)
     target_link_libraries(imageprocessor_test PRIVATE papercutter_core Qt6::Test)
     add_test(NAME imageprocessor COMMAND imageprocessor_test)
+
+    set_tests_properties(compositionstate imageprocessor PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
