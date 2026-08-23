@@ -11,9 +11,6 @@ class SettingsService final {
 public:
     SettingsService();
 
-    QString backupFolder() const;
-    void setBackupFolder(const QString &path);
-
     QString lastSourceFolder() const;
     void setLastSourceFolder(const QString &path);
 

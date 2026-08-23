@@ -22,8 +22,7 @@ before saving it at exactly the right size.
 - Use detected display sizes, common presets, or a custom resolution
 - Process portrait, landscape, and ultrawide wallpapers without distortion
 - Keep everything private and local — images are never uploaded
-- Back up originals automatically before accepting an edit
-- Restore an earlier original from backup history inside the app
+- Export processed copies without changing the source images
 
 ---
 
@@ -33,16 +32,12 @@ before saving it at exactly the right size.
 2. Select your target resolution.
 3. Drag the image to position it and adjust the zoom until the preview looks
    right.
-4. Choose **Accept & Save** to safely update the original wallpaper while
-   keeping its existing filename and location.
+4. Choose **Save As** to export the processed wallpaper as a new file.
 
-Before replacing an original, Papercutter creates and verifies a versioned
-backup. If you change your mind later, open **Backup History** and restore it.
-The current file receives its own recovery backup before a restore takes place.
-
-Use **Save As** when you want a separate processed copy instead. Papercutter
-remembers the last folder you saved to and asks before replacing an existing
-file.
+Papercutter never replaces a source during export. It remembers the last folder
+you saved to and asks before replacing an existing destination. Queue removal
+does not touch source files; the separate Move to Trash action always asks for
+confirmation.
 
 ---
 
@@ -55,11 +50,11 @@ file.
 | **Resolution targets** | Use detected displays, presets, or custom width and height |
 | **Portrait and ultrawide support** | Compose wallpapers for horizontal or vertical displays |
 | **Image queue** | Review several wallpapers in one session |
+| **Batch export** | Select several composed images and save them into one chosen folder |
 | **Drag and drop** | Drop image files or a folder directly into the window |
+| **File actions** | Right-click selected queue items to save, export, remove, or move sources to Trash |
 | **Duplicate removal** | Find duplicate queued images by their contents |
-| **Safe replacement** | Verify a backup before retaining the original name and replacing the file |
 | **Save As** | Export a separate copy without changing the source |
-| **Backup history** | Browse, export, and safely restore previous originals |
 | **Local processing** | Process images with ImageMagick without accounts, uploads, or telemetry |
 
 ---
@@ -102,15 +97,9 @@ Run it directly from the build directory:
 
 ## File Safety
 
-**Accept & Save** never intentionally writes over an original until its backup
-has been copied and verified with SHA-256. Processed output is validated for the
-requested dimensions and committed through a same-folder temporary file.
-
-Backups are never deliberately reused or overwritten. Each version is recorded
-with its original path, timestamp, file details, and verification hash.
-
-Even with these protections, keep a separate backup of important or
-irreplaceable images when using pre-release software.
+Save As renders into a temporary file, validates the requested dimensions, and
+then commits the new destination. It refuses to use the source path as the
+destination, so exporting cannot replace the original image.
 
 ---
 

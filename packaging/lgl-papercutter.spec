@@ -1,5 +1,5 @@
 Name:           lgl-papercutter
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Compose wallpapers for a chosen desktop resolution
 
@@ -24,8 +24,8 @@ Requires:       ImageMagick
 LGL Papercutter is a local desktop application for composing and processing
 wallpapers to match a selected display resolution.
 
-Images are processed locally with ImageMagick. Originals are copied to the
-configured backup folder before a validated output atomically replaces them.
+Images are processed locally with ImageMagick and exported as new files. Source
+images are not replaced by the export workflow.
 
 %prep
 %autosetup -n %{name}-%{version}
@@ -54,5 +54,10 @@ appstream-util validate-relax --nonet \
 %{_datadir}/icons/hicolor/512x512/apps/lgl-papercutter.png
 
 %changelog
+* Mon Aug 24 2026 LinuxGamerLife - 0.2.0-1
+- Add non-destructive batch Save As with numbered export planning
+- Preserve independent staged compositions and support multi-image resolution changes
+- Improve native desktop integration and export confirmation previews
+
 * Thu Aug 20 2026 LinuxGamerLife - 0.1.0-1
 - Initial Fedora 44 development scaffold

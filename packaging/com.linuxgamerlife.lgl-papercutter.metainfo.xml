@@ -18,6 +18,14 @@
   <url type="homepage">https://github.com/linuxgamerlife/lgl-papercutter</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.2.0" date="2026-08-24">
+      <description>
+        <p>
+          Adds non-destructive batch exports, numbered output planning,
+          itemised save previews, and independently staged target resolutions.
+        </p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-08-20">
       <description>
         <p>

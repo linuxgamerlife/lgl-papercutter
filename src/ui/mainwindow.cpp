@@ -6,18 +6,22 @@
 
 #include <QApplication>
 #include <QAction>
-#include <QComboBox>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QCryptographicHash>
 #include <QDesktopServices>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
-#include <QDockWidget>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QGuiApplication>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QImageReader>
 #include <QIcon>
 #include <QLabel>
@@ -29,6 +33,7 @@
 #include <QMimeData>
 #include <QMap>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QScreen>
 #include <QSaveFile>
 #include <QSet>
@@ -39,13 +44,136 @@
 #include <QStatusBar>
 #include <QToolBar>
 #include <QToolButton>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QtConcurrent/QtConcurrent>
 #include <algorithm>
+#include <limits>
 #include <utility>
 
 namespace papercutter {
+
+namespace {
+
+QString fileSha256(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    return hash.addData(&file) ? QString::fromLatin1(hash.result().toHex()) : QString();
+}
+
+struct DestinationNumbering {
+    bool foundNumberedFile{false};
+    qulonglong highestNumber{0};
+    qsizetype paddingWidth{0};
+};
+
+DestinationNumbering inspectDestinationNumbering(const QString &folder)
+{
+    DestinationNumbering numbering;
+    const QRegularExpression numberedStem(QStringLiteral("^\\d+$"));
+    const QFileInfoList files = QDir(folder).entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+    for (const QFileInfo &file : files) {
+        const QString stem = file.completeBaseName();
+        if (!numberedStem.match(stem).hasMatch())
+            continue;
+        bool converted = false;
+        const qulonglong number = stem.toULongLong(&converted);
+        if (!converted)
+            continue;
+        if (!numbering.foundNumberedFile || number > numbering.highestNumber) {
+            numbering.foundNumberedFile = true;
+            numbering.highestNumber = number;
+            numbering.paddingWidth = stem.size();
+        } else if (number == numbering.highestNumber) {
+            numbering.paddingWidth = std::max(numbering.paddingWidth, stem.size());
+        }
+    }
+    return numbering;
+}
+
+bool confirmExportMappings(QWidget *parent, const QVector<ProcessingRequest> &requests)
+{
+    QDialog confirmation(parent);
+    confirmation.setWindowTitle(QStringLiteral("Confirm Save As"));
+    confirmation.setModal(true);
+    confirmation.resize(820, 360);
+
+    auto *layout = new QVBoxLayout(&confirmation);
+    auto *summary = new QLabel(requests.size() == 1
+        ? QStringLiteral("Review the file that will be created:")
+        : QStringLiteral("Review the %1 files that will be created:").arg(requests.size()),
+        &confirmation);
+    layout->addWidget(summary);
+
+    auto *files = new QTreeWidget(&confirmation);
+    files->setColumnCount(2);
+    files->setHeaderLabels({QStringLiteral("Source"), QStringLiteral("Destination")});
+    files->setRootIsDecorated(false);
+    files->setAlternatingRowColors(true);
+    files->setSelectionMode(QAbstractItemView::NoSelection);
+    files->setTextElideMode(Qt::ElideMiddle);
+    files->header()->setSectionResizeMode(0, QHeaderView::Interactive);
+    files->header()->setSectionResizeMode(1, QHeaderView::Stretch);
+    files->setColumnWidth(0, 300);
+    for (const ProcessingRequest &request : requests) {
+        auto *item = new QTreeWidgetItem(files);
+        item->setText(0, QFileInfo(request.job.sourcePath).fileName());
+        item->setText(1, QDir::toNativeSeparators(request.destinationPath));
+        item->setToolTip(0, QDir::toNativeSeparators(request.job.sourcePath));
+        item->setToolTip(1, QDir::toNativeSeparators(request.destinationPath));
+    }
+    layout->addWidget(files, 1);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel,
+                                         &confirmation);
+    buttons->button(QDialogButtonBox::Save)->setText(
+        requests.size() == 1 ? QStringLiteral("Save File") : QStringLiteral("Save Files"));
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &confirmation, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &confirmation, &QDialog::reject);
+    layout->addWidget(buttons);
+
+    return confirmation.exec() == QDialog::Accepted;
+}
+
+bool chooseSequentialNumbering(QWidget *parent, const DestinationNumbering &numbering,
+                               bool &useSequentialNumbering)
+{
+    useSequentialNumbering = false;
+    if (!numbering.foundNumberedFile
+        || numbering.highestNumber == std::numeric_limits<qulonglong>::max())
+        return true;
+
+    const QString highest = QString::number(numbering.highestNumber).rightJustified(
+        numbering.paddingWidth, QLatin1Char('0'));
+    const QString firstOutput = QString::number(numbering.highestNumber + 1).rightJustified(
+        numbering.paddingWidth, QLatin1Char('0'));
+
+    QMessageBox options(parent);
+    options.setIcon(QMessageBox::Question);
+    options.setWindowTitle(QStringLiteral("File numbering"));
+    options.setText(QStringLiteral("The highest numbered file in this folder is %1.")
+                        .arg(highest));
+    auto *renumber = new QCheckBox(
+        QStringLiteral("Continue numbering from %1 (start new files at %2)")
+            .arg(highest, firstOutput),
+        &options);
+    renumber->setChecked(true);
+    options.setCheckBox(renumber);
+    options.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
+    options.setDefaultButton(QMessageBox::Ok);
+    options.button(QMessageBox::Ok)->setText(QStringLiteral("Preview Files"));
+    if (options.exec() != QMessageBox::Ok)
+        return false;
+    useSequentialNumbering = renumber->isChecked();
+    return true;
+}
+
+} // namespace
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -66,15 +194,17 @@ void MainWindow::buildUi()
     auto *removeAction = fileMenu->addAction(
         QStringLiteral("&Remove selected"), this, &MainWindow::removeSelectedImages);
     removeAction->setShortcut(QKeySequence(Qt::Key_Delete));
+    auto *selectAllAction = fileMenu->addAction(QStringLiteral("Select &All"));
+    selectAllAction->setShortcut(QKeySequence::SelectAll);
+    connect(selectAllAction, &QAction::triggered, this, [this] {
+        if (m_queue)
+            m_queue->selectAll();
+    });
     auto *duplicatesAction = fileMenu->addAction(
         QStringLiteral("Remove &duplicates"), this, &MainWindow::removeDuplicates);
     fileMenu->addSeparator();
-    auto *acceptAction = fileMenu->addAction(
-        QStringLiteral("&Accept && Save"), this, &MainWindow::acceptCurrent);
-    auto *acceptAllAction = fileMenu->addAction(
-        QStringLiteral("Accept &all reviewed"), this, &MainWindow::acceptAllReviewed);
     auto *saveAsAction = fileMenu->addAction(
-        QStringLiteral("Save &As…"), this, &MainWindow::saveAsCurrent);
+        QStringLiteral("Save &As…"), this, &MainWindow::saveSelectedAs);
     fileMenu->addSeparator();
     fileMenu->addAction(QStringLiteral("&Quit"), QKeySequence::Quit,
                         qApp, &QApplication::quit);
@@ -82,8 +212,6 @@ void MainWindow::buildUi()
     auto *settingsMenu = menuBar()->addMenu(QStringLiteral("&Settings"));
     settingsMenu->addAction(QStringLiteral("Add wallpaper folder…"), this,
                             &MainWindow::addFolder);
-    settingsMenu->addAction(QStringLiteral("Choose backup folder…"), this,
-                            &MainWindow::chooseBackupFolder);
     m_toggleMenuAction = new QAction(QStringLiteral("Show Menu Bar"), this);
     m_toggleMenuAction->setCheckable(true);
     m_toggleMenuAction->setChecked(m_settings.menuBarVisible());
@@ -104,9 +232,6 @@ void MainWindow::buildUi()
     toolbar->addAction(removeAction);
     duplicatesAction->setIcon(QIcon::fromTheme(QStringLiteral("edit-clear")));
     toolbar->addAction(duplicatesAction);
-    toolbar->addSeparator();
-    acceptAction->setIcon(QIcon::fromTheme(QStringLiteral("document-save")));
-    toolbar->addAction(acceptAction);
 
     auto *moreButton = new QToolButton(toolbar);
     moreButton->setText(QStringLiteral("More"));
@@ -115,7 +240,6 @@ void MainWindow::buildUi()
     moreButton->setPopupMode(QToolButton::InstantPopup);
     auto *moreMenu = new QMenu(moreButton);
     moreMenu->addAction(saveAsAction);
-    moreMenu->addAction(acceptAllAction);
     moreMenu->addSeparator();
     moreMenu->addAction(m_toggleMenuAction);
     moreButton->setMenu(moreMenu);
@@ -129,6 +253,9 @@ void MainWindow::buildUi()
     m_queue->setMinimumWidth(220);
     m_queue->setAccessibleName(QStringLiteral("Processing queue"));
     m_queue->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_queue->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_queue, &QListWidget::customContextMenuRequested,
+            this, &MainWindow::showQueueContextMenu);
 
     m_canvas = new CompositionCanvas(splitter);
 
@@ -167,9 +294,8 @@ void MainWindow::buildUi()
     m_sourceLabel->setWordWrap(true);
     controlsLayout->addWidget(m_sourceLabel);
 
-    m_processButton = new QPushButton(QStringLiteral("Accept && Save"), controls);
-    m_processButton->setIcon(QIcon::fromTheme(QStringLiteral("document-save")));
-    controlsLayout->addWidget(m_processButton);
+    auto *saveAsButton = new QPushButton(QStringLiteral("Save As…"), controls);
+    controlsLayout->addWidget(saveAsButton);
 
     splitter->addWidget(m_queue);
     splitter->addWidget(m_canvas);
@@ -181,10 +307,15 @@ void MainWindow::buildUi()
     setCentralWidget(central);
 
     connect(m_queue, &QListWidget::currentRowChanged, this, &MainWindow::loadCurrentJob);
-    connect(m_processButton, &QPushButton::clicked, this, &MainWindow::acceptCurrent);
-    connect(m_width, &QSpinBox::valueChanged, this, &MainWindow::updateCompositionFromControls);
-    connect(m_height, &QSpinBox::valueChanged, this, &MainWindow::updateCompositionFromControls);
-    connect(m_zoom, &QSlider::valueChanged, this, &MainWindow::updateCompositionFromControls);
+    connect(m_queue, &QListWidget::itemSelectionChanged,
+            this, &MainWindow::syncResolutionControlsToSelection);
+    connect(saveAsButton, &QPushButton::clicked, this, &MainWindow::saveSelectedAs);
+    connect(m_width, &QSpinBox::valueChanged,
+            this, &MainWindow::applyTargetResolutionToSelection);
+    connect(m_height, &QSpinBox::valueChanged,
+            this, &MainWindow::applyTargetResolutionToSelection);
+    connect(m_zoom, &QSlider::valueChanged,
+            this, &MainWindow::updateCurrentZoomFromControl);
     connect(m_resolution, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (m_updatingControls || index < 0)
             return;
@@ -195,7 +326,7 @@ void MainWindow::buildUi()
         m_width->setValue(size.width());
         m_height->setValue(size.height());
         m_updatingControls = false;
-        updateCompositionFromControls();
+        applyTargetResolutionToSelection();
     });
     connect(m_canvas, &CompositionCanvas::compositionChanged, this,
             [this](const CompositionState &state) {
@@ -209,36 +340,7 @@ void MainWindow::buildUi()
         updateQualityLabel();
     });
 
-    m_backupDock = new QDockWidget(QStringLiteral("Backup History"), this);
-    m_backupDock->setObjectName(QStringLiteral("backupHistoryDock"));
-    auto *historyWidget = new QWidget(m_backupDock);
-    auto *historyLayout = new QVBoxLayout(historyWidget);
-    m_filterBackups = new QCheckBox(QStringLiteral("Selected image only"), historyWidget);
-    historyLayout->addWidget(m_filterBackups);
-    m_backupList = new QListWidget(historyWidget);
-    m_backupList->setAccessibleName(QStringLiteral("Backup history"));
-    historyLayout->addWidget(m_backupList);
-    auto *historyButtons = new QHBoxLayout;
-    auto *restoreButton = new QPushButton(QStringLiteral("Restore"), historyWidget);
-    auto *saveBackupButton = new QPushButton(QStringLiteral("Save Backup As…"), historyWidget);
-    auto *openBackupButton = new QPushButton(QStringLiteral("Open Folder"), historyWidget);
-    historyButtons->addWidget(restoreButton);
-    historyButtons->addWidget(saveBackupButton);
-    historyButtons->addWidget(openBackupButton);
-    historyLayout->addLayout(historyButtons);
-    m_backupDock->setWidget(historyWidget);
-    addDockWidget(Qt::BottomDockWidgetArea, m_backupDock);
-    m_backupDock->hide();
-    settingsMenu->addAction(m_backupDock->toggleViewAction());
-    moreMenu->addAction(m_backupDock->toggleViewAction());
-    connect(restoreButton, &QPushButton::clicked, this, &MainWindow::restoreSelectedBackup);
-    connect(saveBackupButton, &QPushButton::clicked, this, &MainWindow::saveSelectedBackupAs);
-    connect(openBackupButton, &QPushButton::clicked, this, &MainWindow::openBackupFolder);
-    connect(m_filterBackups, &QCheckBox::toggled, this, &MainWindow::reloadBackupHistory);
-
     setMenuBarVisible(m_settings.menuBarVisible());
-    reloadBackupHistory();
-    refreshProcessButton();
 }
 
 void MainWindow::populateResolutionTargets()
@@ -324,7 +426,6 @@ void MainWindow::enqueuePaths(const QStringList &paths)
     if (m_queue->currentRow() < 0 && !m_jobs.isEmpty())
         m_queue->setCurrentRow(0);
     statusBar()->showMessage(QStringLiteral("Added %1 image(s) to the queue.").arg(added), 5000);
-    refreshProcessButton();
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *event)
@@ -355,21 +456,39 @@ void MainWindow::dropEvent(QDropEvent *event)
 
 void MainWindow::removeSelectedImages()
 {
-    const QModelIndexList selected = m_queue->selectionModel()->selectedRows();
+    const QVector<int> selected = selectedJobRows();
     if (selected.isEmpty())
         return;
 
     QSet<int> selectedRows;
-    int nextRow = static_cast<int>(m_jobs.size());
-    for (const QModelIndex &index : selected) {
-        selectedRows.insert(index.row());
-        nextRow = std::min(nextRow, index.row());
-    }
+    for (const int row : selected)
+        selectedRows.insert(row);
+    removeJobRows(selectedRows);
+}
+
+QVector<int> MainWindow::selectedJobRows() const
+{
+    QVector<int> rows;
+    const QModelIndexList selected = m_queue->selectionModel()->selectedRows();
+    rows.reserve(selected.size());
+    for (const QModelIndex &index : selected)
+        rows.push_back(index.row());
+    std::sort(rows.begin(), rows.end());
+    if (rows.isEmpty() && m_queue->currentRow() >= 0)
+        rows.push_back(m_queue->currentRow());
+    return rows;
+}
+
+void MainWindow::removeJobRows(const QSet<int> &rows)
+{
+    if (rows.isEmpty())
+        return;
+    const int nextRow = *std::min_element(rows.cbegin(), rows.cend());
 
     QVector<ImageJob> remainingJobs;
-    remainingJobs.reserve(m_jobs.size() - selectedRows.size());
+    remainingJobs.reserve(m_jobs.size() - rows.size());
     for (int row = 0; row < m_jobs.size(); ++row) {
-        if (!selectedRows.contains(row))
+        if (!rows.contains(row))
             remainingJobs.push_back(m_jobs[row]);
     }
     m_jobs = std::move(remainingJobs);
@@ -388,145 +507,61 @@ void MainWindow::removeSelectedImages()
     } else {
         loadCurrentJob(m_queue->currentRow());
     }
-    refreshProcessButton();
 }
 
-void MainWindow::chooseBackupFolder()
+void MainWindow::showQueueContextMenu(const QPoint &position)
 {
-    const QString path = QFileDialog::getExistingDirectory(
-        this, QStringLiteral("Choose backup folder"), m_settings.backupFolder());
-    if (path.isEmpty())
+    QListWidgetItem *clicked = m_queue->itemAt(position);
+    if (!clicked)
         return;
-    m_settings.setBackupFolder(path);
-    reloadBackupHistory();
-    refreshProcessButton();
+    if (!clicked->isSelected()) {
+        m_queue->clearSelection();
+        clicked->setSelected(true);
+        m_queue->setCurrentItem(clicked);
+    }
+
+    QMenu menu(this);
+    menu.addAction(QStringLiteral("Save As…"), this, &MainWindow::saveSelectedAs);
+    menu.addSeparator();
+    menu.addAction(QStringLiteral("Move to Trash"), this,
+                   &MainWindow::moveSelectedImagesToTrash);
+    menu.addAction(QStringLiteral("Remove from Queue"), this,
+                   &MainWindow::removeSelectedImages);
+    menu.exec(m_queue->viewport()->mapToGlobal(position));
 }
 
-void MainWindow::refreshProcessButton()
+void MainWindow::moveSelectedImagesToTrash()
 {
-    const bool ready = m_queue->currentRow() >= 0
-        && !m_settings.backupFolder().isEmpty()
-        && ImageProcessor::isBackendAvailable();
-    m_processButton->setEnabled(ready);
-    if (!ImageProcessor::isBackendAvailable())
-        m_processButton->setToolTip(QStringLiteral("Install ImageMagick to process images."));
-    else if (m_settings.backupFolder().isEmpty())
-        m_processButton->setToolTip(QStringLiteral("Choose a backup folder first."));
-    else if (m_queue->currentRow() < 0)
-        m_processButton->setToolTip(QStringLiteral("Select an image first."));
-    else
-        m_processButton->setToolTip(
-            QStringLiteral("Back up, accept, and replace the selected image."));
-}
-
-void MainWindow::acceptCurrent()
-{
-    const int row = m_queue->currentRow();
-    if (row < 0 || !m_processButton->isEnabled())
-        return;
-    const auto answer = QMessageBox::question(
-        this, QStringLiteral("Accept edit"),
-        QStringLiteral("Back up and replace %1 with this edit?\n\n"
-                       "The filename and location will be retained.")
-            .arg(m_jobs[row].displayName()));
-    if (answer != QMessageBox::Yes)
-        return;
-    processAcceptedRows({row});
-}
-
-void MainWindow::acceptAllReviewed()
-{
-    if (m_jobs.isEmpty() || m_settings.backupFolder().isEmpty())
-        return;
-    const auto answer = QMessageBox::question(
-        this, QStringLiteral("Accept all edits"),
-        QStringLiteral("Back up and replace all %1 queued images?").arg(m_jobs.size()));
-    if (answer != QMessageBox::Yes)
-        return;
-    QVector<int> rows;
-    rows.reserve(m_jobs.size());
-    for (int row = 0; row < m_jobs.size(); ++row)
-        rows.push_back(row);
-    processAcceptedRows(rows);
-}
-
-void MainWindow::processAcceptedRows(const QVector<int> &rows)
-{
+    const QVector<int> rows = selectedJobRows();
     if (rows.isEmpty())
         return;
+    if (QMessageBox::warning(
+            this, QStringLiteral("Move wallpapers to Trash"),
+            QStringLiteral("Move %1 selected wallpaper(s) to the desktop Trash?\n\n"
+                           "This removes the source files, not just the queue entries.")
+                .arg(rows.size()),
+            QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel)
+        != QMessageBox::Yes)
+        return;
 
-    m_processButton->setEnabled(false);
-    statusBar()->showMessage(QStringLiteral("Accepting edits…"));
-    QVector<ProcessingRequest> requests;
-    requests.reserve(rows.size());
-    const QString backupFolder = m_settings.backupFolder();
+    QSet<int> removed;
+    QStringList failures;
     for (const int row : rows) {
-        if (row >= 0 && row < m_jobs.size())
-            requests.push_back({m_jobs[row], ProcessingOperation::AcceptAndReplace,
-                                {}, backupFolder, false});
+        if (row < 0 || row >= m_jobs.size())
+            continue;
+        const QString path = m_jobs[row].sourcePath;
+        if (QFile::moveToTrash(path))
+            removed.insert(row);
+        else
+            failures << QStringLiteral("%1: could not be moved to Trash")
+                            .arg(QFileInfo(path).fileName());
     }
-    auto *watcher = new QFutureWatcher<QVector<ProcessingResult>>(this);
-    connect(watcher, &QFutureWatcher<QVector<ProcessingResult>>::finished, this,
-            [this, watcher, rows] {
-        const QVector<ProcessingResult> results = watcher->result();
-        watcher->deleteLater();
-        int succeeded = 0;
-        QStringList failures;
-        QSet<int> successfulRows;
-        QMap<int, QString> failedRows;
-        for (int index = 0; index < results.size(); ++index) {
-            const int originalRow = rows.value(index, -1);
-            if (results[index].succeeded) {
-                ++succeeded;
-                successfulRows.insert(originalRow);
-            } else {
-                failedRows.insert(originalRow, results[index].errorMessage);
-                failures << QStringLiteral("%1: %2")
-                                .arg(QFileInfo(results[index].sourcePath).fileName(),
-                                     results[index].errorMessage);
-            }
-        }
-        QVector<ImageJob> remainingJobs;
-        for (int row = 0; row < m_jobs.size(); ++row) {
-            if (successfulRows.contains(row))
-                continue;
-            ImageJob job = m_jobs[row];
-            if (failedRows.contains(row)) {
-                job.status = JobStatus::Failed;
-                job.errorMessage = failedRows.value(row);
-            }
-            remainingJobs.push_back(job);
-        }
-        m_jobs = std::move(remainingJobs);
-        m_queue->clear();
-        for (const ImageJob &job : std::as_const(m_jobs)) {
-            m_queue->addItem(job.status == JobStatus::Failed
-                ? QStringLiteral("⚠ %1").arg(job.displayName()) : job.displayName());
-        }
-        if (!m_jobs.isEmpty())
-            m_queue->setCurrentRow(0);
-        else
-            m_canvas->setImage({});
-        statusBar()->showMessage(QStringLiteral("Accepted %1 of %2 image(s).")
-                                     .arg(succeeded).arg(results.size()), 10000);
-        if (!failures.isEmpty())
-            QMessageBox::warning(this, QStringLiteral("Some images failed"), failures.join('\n'));
-        else
-            QMessageBox::information(this, QStringLiteral("Edits accepted"),
-                                     QStringLiteral("All originals were backed up and replaced."));
-        if (!m_jobs.isEmpty())
-            loadCurrentJob(m_queue->currentRow());
-        reloadBackupHistory();
-        refreshProcessButton();
-    });
-    watcher->setFuture(QtConcurrent::run([requests] {
-        QVector<ProcessingResult> results;
-        results.reserve(requests.size());
-        const ImageProcessor processor;
-        for (const ProcessingRequest &request : requests)
-            results.push_back(processor.process(request));
-        return results;
-    }));
+    removeJobRows(removed);
+    statusBar()->showMessage(QStringLiteral("Moved %1 wallpaper(s) to Trash.")
+                                 .arg(removed.size()), 5000);
+    if (!failures.isEmpty())
+        QMessageBox::warning(this, QStringLiteral("Some files were not moved"),
+                             failures.join('\n'));
 }
 
 void MainWindow::saveAsCurrent()
@@ -545,8 +580,9 @@ void MainWindow::saveAsCurrent()
     if (destination.isEmpty())
         return;
     if (QFileInfo(destination).absoluteFilePath() == source.absoluteFilePath()) {
-        QMessageBox::information(this, QStringLiteral("Use Accept & Save"),
-            QStringLiteral("Use Accept & Save to safely back up and replace the original."));
+        QMessageBox::information(this, QStringLiteral("Choose another destination"),
+            QStringLiteral("Save As never replaces the original image. Choose a different "
+                           "filename or folder."));
         return;
     }
     bool overwrite = false;
@@ -558,9 +594,10 @@ void MainWindow::saveAsCurrent()
         if (!overwrite)
             return;
     }
+    const ProcessingRequest request{m_jobs[row], destination, overwrite};
+    if (!confirmExportMappings(this, {request}))
+        return;
     statusBar()->showMessage(QStringLiteral("Saving copy…"));
-    const ProcessingRequest request{m_jobs[row], ProcessingOperation::SaveAs,
-                                    destination, {}, overwrite};
     auto *watcher = new QFutureWatcher<ProcessingResult>(this);
     connect(watcher, &QFutureWatcher<ProcessingResult>::finished, this,
             [this, watcher, destination] {
@@ -579,104 +616,140 @@ void MainWindow::saveAsCurrent()
     }));
 }
 
+void MainWindow::saveSelectedAs()
+{
+    const QVector<int> rows = selectedJobRows();
+    if (rows.isEmpty())
+        return;
+
+    if (rows.size() <= 1) {
+        saveAsCurrent();
+        return;
+    }
+
+    const QString initialFolder = m_settings.lastSaveAsFolder().isEmpty()
+        ? QFileInfo(m_jobs[rows.first()].sourcePath).absolutePath()
+        : m_settings.lastSaveAsFolder();
+    const QString folder = QFileDialog::getExistingDirectory(
+        this, QStringLiteral("Choose export folder"), initialFolder);
+    if (folder.isEmpty())
+        return;
+
+    QVector<ProcessingRequest> requests;
+    QStringList skipped;
+    QSet<QString> plannedDestinations;
+    const DestinationNumbering numbering = inspectDestinationNumbering(folder);
+    bool useSequentialNumbering = false;
+    if (!chooseSequentialNumbering(this, numbering, useSequentialNumbering))
+        return;
+    qulonglong nextNumber = numbering.highestNumber;
+    bool cancelled = false;
+    for (const int row : rows) {
+        if (row < 0 || row >= m_jobs.size())
+            continue;
+        const QFileInfo source(m_jobs[row].sourcePath);
+        QString outputName = source.fileName();
+        if (useSequentialNumbering) {
+            if (nextNumber == std::numeric_limits<qulonglong>::max()) {
+                skipped << QStringLiteral("%1: destination numbering is exhausted")
+                               .arg(source.fileName());
+                continue;
+            }
+            ++nextNumber;
+            const QString stem = QString::number(nextNumber).rightJustified(
+                numbering.paddingWidth, QLatin1Char('0'));
+            outputName = source.suffix().isEmpty()
+                ? stem : stem + QLatin1Char('.') + source.suffix();
+        }
+        const QString destination = QDir(folder).filePath(outputName);
+        const QString absoluteDestination = QFileInfo(destination).absoluteFilePath();
+        if (absoluteDestination == source.absoluteFilePath()) {
+            skipped << QStringLiteral("%1: destination is the original source")
+                           .arg(source.fileName());
+            continue;
+        }
+
+        bool overwrite = false;
+        if (QFileInfo::exists(destination)
+            || plannedDestinations.contains(absoluteDestination)) {
+            QMessageBox collision(this);
+            collision.setIcon(QMessageBox::Question);
+            collision.setWindowTitle(QStringLiteral("Replace existing file?"));
+            collision.setText(QStringLiteral("%1 conflicts with another export.")
+                                  .arg(destination));
+            collision.setInformativeText(
+                QStringLiteral("Replace it, skip this image, or cancel the remaining batch?"));
+            collision.setStandardButtons(
+                QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+            collision.setDefaultButton(QMessageBox::No);
+            const int answer = collision.exec();
+            if (answer == QMessageBox::Cancel) {
+                cancelled = true;
+                break;
+            }
+            if (answer == QMessageBox::No) {
+                skipped << QStringLiteral("%1: conflicting destination skipped")
+                               .arg(source.fileName());
+                continue;
+            }
+            overwrite = true;
+        }
+        requests.push_back({m_jobs[row], destination, overwrite});
+        plannedDestinations.insert(absoluteDestination);
+    }
+    if (cancelled)
+        skipped << QStringLiteral("Remaining exports were cancelled.");
+    if (requests.isEmpty()) {
+        if (!skipped.isEmpty())
+            QMessageBox::information(this, QStringLiteral("Nothing exported"),
+                                     skipped.join('\n'));
+        return;
+    }
+
+    if (!confirmExportMappings(this, requests))
+        return;
+
+    statusBar()->showMessage(QStringLiteral("Saving %1 image(s)…").arg(requests.size()));
+    auto *watcher = new QFutureWatcher<QVector<ProcessingResult>>(this);
+    connect(watcher, &QFutureWatcher<QVector<ProcessingResult>>::finished, this,
+            [this, watcher, folder, skipped] {
+        const QVector<ProcessingResult> results = watcher->result();
+        watcher->deleteLater();
+        int succeeded = 0;
+        QStringList failures;
+        for (const ProcessingResult &result : results) {
+            if (result.succeeded)
+                ++succeeded;
+            else
+                failures << QStringLiteral("%1: %2")
+                                .arg(QFileInfo(result.sourcePath).fileName(),
+                                     result.errorMessage);
+        }
+        m_settings.setLastSaveAsFolder(folder);
+        statusBar()->showMessage(QStringLiteral("Saved %1 of %2 selected image(s).")
+                                     .arg(succeeded).arg(results.size()), 10000);
+        QStringList report = skipped;
+        report.append(failures);
+        if (!report.isEmpty())
+            QMessageBox::warning(this, QStringLiteral("Batch export report"),
+                                 report.join('\n'));
+    });
+    watcher->setFuture(QtConcurrent::run([requests] {
+        QVector<ProcessingResult> results;
+        results.reserve(requests.size());
+        const ImageProcessor processor;
+        for (const ProcessingRequest &request : requests)
+            results.push_back(processor.process(request));
+        return results;
+    }));
+}
+
 void MainWindow::setMenuBarVisible(const bool visible)
 {
     menuBar()->setVisible(visible);
     if (m_toggleMenuAction->isChecked() != visible)
         m_toggleMenuAction->setChecked(visible);
     m_settings.setMenuBarVisible(visible);
-}
-
-void MainWindow::reloadBackupHistory()
-{
-    const QVector<BackupRecord> allRecords =
-        BackupService(m_settings.backupFolder()).records();
-    m_backupRecords.clear();
-    const int currentRow = m_queue->currentRow();
-    const QString selectedSource = currentRow >= 0 && currentRow < m_jobs.size()
-        ? QFileInfo(m_jobs[currentRow].sourcePath).absoluteFilePath() : QString();
-    for (const BackupRecord &record : allRecords) {
-        if (!m_filterBackups->isChecked()
-            || QFileInfo(record.sourcePath).absoluteFilePath() == selectedSource)
-            m_backupRecords.push_back(record);
-    }
-    m_backupList->clear();
-    for (const BackupRecord &record : std::as_const(m_backupRecords)) {
-        m_backupList->addItem(QStringLiteral("%1 — %2 — %3")
-            .arg(QFileInfo(record.sourcePath).fileName(),
-                 record.timestamp.toLocalTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")),
-                 record.reason));
-    }
-}
-
-void MainWindow::saveSelectedBackupAs()
-{
-    const int row = m_backupList->currentRow();
-    if (row < 0 || row >= m_backupRecords.size())
-        return;
-    const BackupRecord &record = m_backupRecords[row];
-    const QFileInfo backup(record.backupPath);
-    const QString initialFolder = m_settings.lastSaveAsFolder().isEmpty()
-        ? QFileInfo(record.sourcePath).absolutePath() : m_settings.lastSaveAsFolder();
-    const QString destination = QFileDialog::getSaveFileName(
-        this, QStringLiteral("Save backup as"),
-        QDir(initialFolder).filePath(QFileInfo(record.sourcePath).fileName()),
-        QStringLiteral("Images (*.jpg *.jpeg *.png *.webp)"), nullptr,
-        QFileDialog::DontConfirmOverwrite);
-    if (destination.isEmpty())
-        return;
-    if (QFileInfo::exists(destination)
-        && QMessageBox::question(this, QStringLiteral("Replace existing file?"),
-               QStringLiteral("%1 already exists. Replace it?").arg(destination))
-            != QMessageBox::Yes)
-        return;
-    QDir().mkpath(QFileInfo(destination).absolutePath());
-    QFile input(backup.absoluteFilePath());
-    QSaveFile output(destination);
-    if (!input.open(QIODevice::ReadOnly) || !output.open(QIODevice::WriteOnly)
-        || output.write(input.readAll()) < 0 || !output.commit()) {
-        QMessageBox::warning(this, QStringLiteral("Save backup failed"),
-                             QStringLiteral("The backup could not be copied."));
-        return;
-    }
-    m_settings.setLastSaveAsFolder(QFileInfo(destination).absolutePath());
-    statusBar()->showMessage(QStringLiteral("Saved backup copy to %1").arg(destination), 10000);
-}
-
-void MainWindow::restoreSelectedBackup()
-{
-    const int row = m_backupList->currentRow();
-    if (row < 0 || row >= m_backupRecords.size())
-        return;
-    const BackupRecord record = m_backupRecords[row];
-    if (QMessageBox::question(this, QStringLiteral("Restore backup"),
-        QStringLiteral("Restore %1?\n\nThe current file will receive a recovery backup first.")
-            .arg(record.sourcePath)) != QMessageBox::Yes)
-        return;
-    auto *watcher = new QFutureWatcher<RestoreResult>(this);
-    connect(watcher, &QFutureWatcher<RestoreResult>::finished, this, [this, watcher] {
-        const RestoreResult result = watcher->result();
-        watcher->deleteLater();
-        if (result.succeeded)
-            QMessageBox::information(this, QStringLiteral("Restore complete"),
-                                     QStringLiteral("The backup was restored safely."));
-        else
-            QMessageBox::warning(this, QStringLiteral("Restore failed"), result.errorMessage);
-        reloadBackupHistory();
-        if (m_queue->currentRow() >= 0)
-            loadCurrentJob(m_queue->currentRow());
-    });
-    const QString folder = m_settings.backupFolder();
-    watcher->setFuture(QtConcurrent::run([folder, record] {
-        return BackupService(folder).restore(record);
-    }));
-}
-
-void MainWindow::openBackupFolder()
-{
-    const QString folder = m_settings.backupFolder();
-    if (!folder.isEmpty())
-        QDesktopServices::openUrl(QUrl::fromLocalFile(folder));
 }
 
 void MainWindow::removeDuplicates()
@@ -703,7 +776,7 @@ void MainWindow::removeDuplicates()
         QSet<QString> hashes;
         QVector<int> duplicates;
         for (int row = 0; row < jobs.size(); ++row) {
-            const QString hash = BackupService::fileSha256(jobs[row].sourcePath);
+            const QString hash = fileSha256(jobs[row].sourcePath);
             if (hash.isEmpty())
                 continue;
             if (hashes.contains(hash))
@@ -720,7 +793,6 @@ void MainWindow::loadCurrentJob(const int row)
     if (row < 0 || row >= m_jobs.size()) {
         m_canvas->setImage({});
         m_sourceLabel->setText(QStringLiteral("Source: no image selected"));
-        refreshProcessButton();
         return;
     }
 
@@ -742,13 +814,31 @@ void MainWindow::loadCurrentJob(const int row)
     m_height->setValue(job.composition.targetSize.height());
     m_zoom->setValue(qRound(job.composition.zoom * 100.0));
     m_updatingControls = false;
+    syncResolutionControlsToSelection();
     updateQualityLabel();
-    refreshProcessButton();
-    if (m_filterBackups && m_filterBackups->isChecked())
-        reloadBackupHistory();
 }
 
-void MainWindow::updateCompositionFromControls()
+void MainWindow::applyTargetResolutionToSelection()
+{
+    if (m_updatingControls)
+        return;
+    const QVector<int> rows = selectedJobRows();
+    if (rows.isEmpty())
+        return;
+
+    const QSize targetSize(m_width->value(), m_height->value());
+    for (const int row : rows) {
+        if (row >= 0 && row < m_jobs.size())
+            m_jobs[row].composition.targetSize = targetSize;
+    }
+    const int currentRow = m_queue->currentRow();
+    if (currentRow >= 0 && currentRow < m_jobs.size())
+        m_canvas->setComposition(m_jobs[currentRow].composition);
+    syncResolutionControlsToSelection();
+    updateQualityLabel();
+}
+
+void MainWindow::updateCurrentZoomFromControl()
 {
     if (m_updatingControls)
         return;
@@ -756,11 +846,56 @@ void MainWindow::updateCompositionFromControls()
     if (row < 0 || row >= m_jobs.size())
         return;
 
-    ImageJob &job = m_jobs[row];
-    job.composition.targetSize = {m_width->value(), m_height->value()};
-    job.composition.zoom = m_zoom->value() / 100.0;
-    m_canvas->setComposition(job.composition);
+    m_jobs[row].composition.zoom = m_zoom->value() / 100.0;
+    m_canvas->setComposition(m_jobs[row].composition);
     updateQualityLabel();
+}
+
+void MainWindow::syncResolutionControlsToSelection()
+{
+    if (m_updatingControls || !m_resolution)
+        return;
+
+    const QVector<int> rows = selectedJobRows();
+    const int currentRow = m_queue->currentRow();
+    if (rows.isEmpty() || currentRow < 0 || currentRow >= m_jobs.size())
+        return;
+
+    const QSize currentSize = m_jobs[currentRow].composition.targetSize;
+    bool mixed = false;
+    const QSize firstSize = m_jobs[rows.first()].composition.targetSize;
+    for (const int row : rows) {
+        if (row >= 0 && row < m_jobs.size()
+            && m_jobs[row].composition.targetSize != firstSize) {
+            mixed = true;
+            break;
+        }
+    }
+
+    m_updatingControls = true;
+    for (int index = m_resolution->count() - 1; index >= 0; --index) {
+        if (m_resolution->itemData(index, Qt::UserRole + 1).toBool())
+            m_resolution->removeItem(index);
+    }
+
+    if (mixed) {
+        m_resolution->insertItem(0, QStringLiteral("Mixed resolutions"), QVariant());
+        m_resolution->setItemData(0, true, Qt::UserRole + 1);
+        m_resolution->setCurrentIndex(0);
+    } else {
+        int index = m_resolution->findData(firstSize);
+        if (index < 0) {
+            m_resolution->insertItem(
+                0, QStringLiteral("Staged — %1 × %2")
+                       .arg(firstSize.width()).arg(firstSize.height()), firstSize);
+            m_resolution->setItemData(0, true, Qt::UserRole + 1);
+            index = 0;
+        }
+        m_resolution->setCurrentIndex(index);
+    }
+    m_width->setValue(currentSize.width());
+    m_height->setValue(currentSize.height());
+    m_updatingControls = false;
 }
 
 void MainWindow::updateQualityLabel()

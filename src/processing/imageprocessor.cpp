@@ -27,57 +27,44 @@ ProcessingResult ImageProcessor::process(const ProcessingRequest &request) const
 {
     const ImageJob &job = request.job;
     ProcessingResult result;
-    result.operation = request.operation;
     result.sourcePath = job.sourcePath;
     if (!job.composition.isValid())
-        return {false, request.operation, job.sourcePath, {}, {}, {},
+        return {false, job.sourcePath, {},
                 QStringLiteral("validation"), QStringLiteral("The composition is invalid.")};
     if (!QFileInfo::exists(job.sourcePath))
-        return {false, request.operation, job.sourcePath, {}, {}, {},
+        return {false, job.sourcePath, {},
                 QStringLiteral("validation"), QStringLiteral("The source image does not exist.")};
     if (!isBackendAvailable())
-        return {false, request.operation, job.sourcePath, {}, {}, {},
+        return {false, job.sourcePath, {},
                 QStringLiteral("backend"),
                 QStringLiteral("ImageMagick is not installed or magick is not in PATH.")};
 
-    const QFileInfo source(job.sourcePath);
-    QString outputPath = request.operation == ProcessingOperation::AcceptAndReplace
-        ? source.absoluteFilePath() : QFileInfo(request.destinationPath).absoluteFilePath();
-    if (request.operation == ProcessingOperation::SaveAs) {
-        if (request.destinationPath.isEmpty())
-            return {false, request.operation, job.sourcePath, {}, {}, {},
-                    QStringLiteral("validation"), QStringLiteral("No Save As destination was selected.")};
-        if (QFileInfo::exists(outputPath) && !request.overwriteDestination)
-            return {false, request.operation, job.sourcePath, outputPath, {}, {},
-                    QStringLiteral("collision"), QStringLiteral("The destination already exists.")};
-        QDir outputDirectory = QFileInfo(outputPath).absoluteDir();
-        if (!outputDirectory.exists() && !outputDirectory.mkpath(QStringLiteral(".")))
-            return {false, request.operation, job.sourcePath, outputPath, {}, {},
-                    QStringLiteral("destination"),
-                    QStringLiteral("The destination folder could not be created.")};
-    } else {
-        const BackupResult backup = BackupService(request.backupFolder).createBackup(
-            job.sourcePath, job.composition.targetSize);
-        if (!backup.succeeded)
-            return {false, request.operation, job.sourcePath, {}, {}, {},
-                    QStringLiteral("backup"), backup.errorMessage};
-        result.backupRecord = backup.record;
-        result.backupPath = backup.record.backupPath;
-    }
+    if (request.destinationPath.isEmpty())
+        return {false, job.sourcePath, {}, QStringLiteral("validation"),
+                QStringLiteral("No Save As destination was selected.")};
+    const QString outputPath = QFileInfo(request.destinationPath).absoluteFilePath();
+    if (outputPath == QFileInfo(job.sourcePath).absoluteFilePath())
+        return {false, job.sourcePath, outputPath, QStringLiteral("validation"),
+                QStringLiteral("Save As cannot replace the original image.")};
+    if (QFileInfo::exists(outputPath) && !request.overwriteDestination)
+        return {false, job.sourcePath, outputPath, QStringLiteral("collision"),
+                QStringLiteral("The destination already exists.")};
+    QDir outputDirectory = QFileInfo(outputPath).absoluteDir();
+    if (!outputDirectory.exists() && !outputDirectory.mkpath(QStringLiteral(".")))
+        return {false, job.sourcePath, outputPath, QStringLiteral("destination"),
+                QStringLiteral("The destination folder could not be created.")};
 
     const QFileInfo outputInfo(outputPath);
     const QString outputSuffix = outputInfo.suffix().toLower();
     if (!QSet<QString>{QStringLiteral("jpg"), QStringLiteral("jpeg"),
                        QStringLiteral("png"), QStringLiteral("webp")}.contains(outputSuffix))
-        return {false, request.operation, job.sourcePath, outputPath, result.backupPath,
-                result.backupRecord, QStringLiteral("validation"),
+        return {false, job.sourcePath, outputPath, QStringLiteral("validation"),
                 QStringLiteral("The destination must use JPEG, PNG, or WebP.")};
     const QString temporaryTemplate = outputInfo.absolutePath()
         + QStringLiteral("/.lgl-papercutter-XXXXXX.") + outputInfo.suffix();
     QTemporaryFile temporary(temporaryTemplate);
     if (!temporary.open())
-        return {false, request.operation, job.sourcePath, outputPath, result.backupPath,
-                result.backupRecord, QStringLiteral("temporary-file"),
+        return {false, job.sourcePath, outputPath, QStringLiteral("temporary-file"),
                 QStringLiteral("A temporary output file could not be created.")};
     const QString temporaryPath = temporary.fileName();
     temporary.close();
@@ -121,27 +108,23 @@ ProcessingResult ImageProcessor::process(const ProcessingRequest &request) const
     process.setArguments(arguments);
     process.start();
     if (!process.waitForStarted(5000))
-        return {false, request.operation, job.sourcePath, outputPath, result.backupPath,
-                result.backupRecord, QStringLiteral("render"),
+        return {false, job.sourcePath, outputPath, QStringLiteral("render"),
                 QStringLiteral("ImageMagick could not be started.")};
     if (!process.waitForFinished(300000)) {
         process.kill();
         process.waitForFinished();
-        return {false, request.operation, job.sourcePath, outputPath, result.backupPath,
-                result.backupRecord, QStringLiteral("render"),
+        return {false, job.sourcePath, outputPath, QStringLiteral("render"),
                 QStringLiteral("ImageMagick timed out.")};
     }
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
         const QString diagnostic = QString::fromUtf8(process.readAllStandardError()).trimmed();
-        return {false, request.operation, job.sourcePath, outputPath, result.backupPath,
-                result.backupRecord, QStringLiteral("render"),
+        return {false, job.sourcePath, outputPath, QStringLiteral("render"),
                 diagnostic.isEmpty() ? QStringLiteral("ImageMagick failed.") : diagnostic};
     }
 
     QImageReader outputReader(temporaryPath);
     if (outputReader.size() != target)
-        return {false, request.operation, job.sourcePath, outputPath, result.backupPath,
-                result.backupRecord, QStringLiteral("output-validation"),
+        return {false, job.sourcePath, outputPath, QStringLiteral("output-validation"),
                 QStringLiteral("The rendered image has incorrect dimensions.")};
 
     QFile::setPermissions(temporaryPath, QFile::permissions(job.sourcePath));
@@ -150,10 +133,18 @@ ProcessingResult ImageProcessor::process(const ProcessingRequest &request) const
     std::filesystem::rename(temporaryPath.toStdString(), outputPath.toStdString(), error);
     if (error) {
         QFile::remove(temporaryPath);
-        return {false, request.operation, job.sourcePath, outputPath, result.backupPath,
-                result.backupRecord, QStringLiteral("commit"),
-                QStringLiteral("The processed image could not replace the source: %1")
-                    .arg(QString::fromStdString(error.message()))};
+        return {false, job.sourcePath, outputPath, QStringLiteral("commit"),
+                QStringLiteral("The processed image could not be committed at %1: %2")
+                    .arg(outputPath, QString::fromStdString(error.message()))};
+    }
+
+    QImageReader committedReader(outputPath);
+    if (committedReader.size() != target) {
+        return {false, job.sourcePath, outputPath, QStringLiteral("commit-validation"),
+                QStringLiteral("The committed image at %1 could not be verified at %2 × %3.")
+                    .arg(outputPath)
+                    .arg(target.width())
+                    .arg(target.height())};
     }
     result.succeeded = true;
     result.outputPath = outputPath;

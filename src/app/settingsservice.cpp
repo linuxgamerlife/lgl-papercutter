@@ -9,16 +9,6 @@ SettingsService::SettingsService()
 {
 }
 
-QString SettingsService::backupFolder() const
-{
-    return m_settings.value(QStringLiteral("files/backupFolder")).toString();
-}
-
-void SettingsService::setBackupFolder(const QString &path)
-{
-    m_settings.setValue(QStringLiteral("files/backupFolder"), path);
-}
-
 QString SettingsService::lastSourceFolder() const
 {
     return m_settings.value(QStringLiteral("files/lastSourceFolder")).toString();

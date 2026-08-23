@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(lgl-papercutter VERSION 0.1.0 LANGUAGES CXX)
+project(lgl-papercutter VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,8 +35,6 @@ add_library(papercutter_core STATIC
     src/core/imagejob.h
     src/app/settingsservice.cpp
     src/app/settingsservice.h
-    src/app/backupservice.cpp
-    src/app/backupservice.h
     src/processing/imageprocessor.cpp
     src/processing/imageprocessor.h
 )

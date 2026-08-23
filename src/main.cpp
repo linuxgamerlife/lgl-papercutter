@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 
     QApplication application(argc, argv);
     application.setApplicationName(QStringLiteral("LGL Papercutter"));
-    application.setApplicationVersion(QStringLiteral("0.1.0"));
+    application.setApplicationVersion(QStringLiteral("0.2.0"));
     application.setOrganizationName(QStringLiteral("LinuxGamerLife"));
     application.setDesktopFileName(
         QStringLiteral("com.linuxgamerlife.lgl-papercutter"));
