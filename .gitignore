@@ -2,6 +2,7 @@
 /build-*/
 /result*/
 /rpmbuild*/
+/AppImage/
 /.cache/
 /compile_commands.json
 *.rpm

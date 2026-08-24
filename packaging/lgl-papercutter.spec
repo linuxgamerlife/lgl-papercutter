@@ -47,7 +47,7 @@ appstream-util validate-relax --nonet \
 
 %files
 %license LICENSE
-%doc README.md
+%doc README.md CHANGELOG.md
 %{_bindir}/lgl-papercutter
 %{_datadir}/applications/com.linuxgamerlife.lgl-papercutter.desktop
 %{_datadir}/metainfo/com.linuxgamerlife.lgl-papercutter.metainfo.xml

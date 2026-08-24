@@ -5,6 +5,7 @@
 **A simple way to modify wallpapers to make them a better fit for your desktop.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/release-0.2.0-purple)](CHANGELOG.md)
 [![Fedora](https://img.shields.io/badge/Fedora-44-blue?logo=fedora&logoColor=white)](https://fedoraproject.org)
 [![Qt](https://img.shields.io/badge/Qt-6-green?logo=qt&logoColor=white)](https://www.qt.io)
 
@@ -29,10 +30,13 @@ before saving it at exactly the right size.
 ## How It Works
 
 1. Add one or more JPEG, PNG, or WebP images using the toolbar or drag and drop.
-2. Select your target resolution.
-3. Drag the image to position it and adjust the zoom until the preview looks
-   right.
-4. Choose **Save As** to export the processed wallpaper as a new file.
+2. Select your target resolution. Select multiple queue entries first to apply
+   the resolution to all of them at once.
+3. Drag the current image to position it and adjust the zoom until the preview
+   looks right. Each image retains its own staged resolution, position, and
+   zoom while you move through the queue.
+4. Choose **Save As** to preview the exact output names and locations, then
+   export the processed wallpapers as new files.
 
 Papercutter never replaces a source during export. It remembers the last folder
 you saved to and asks before replacing an existing destination. Queue removal
@@ -48,9 +52,12 @@ confirmation.
 | **Visual composition** | Preview the exact target shape and reposition the image by dragging |
 | **Zoom control** | Choose how tightly the wallpaper is cropped |
 | **Resolution targets** | Use detected displays, presets, or custom width and height |
+| **Staged compositions** | Retain an independent resolution, crop, position, and zoom for every queued image |
+| **Multi-image resolution changes** | Apply a target resolution to any selection or the entire queue |
 | **Portrait and ultrawide support** | Compose wallpapers for horizontal or vertical displays |
 | **Image queue** | Review several wallpapers in one session |
-| **Batch export** | Select several composed images and save them into one chosen folder |
+| **Batch export** | Preview and save several composed images into one chosen folder |
+| **Numbered outputs** | Optionally continue from the highest numbered filename already in the destination |
 | **Drag and drop** | Drop image files or a folder directly into the window |
 | **File actions** | Right-click selected queue items to save, export, remove, or move sources to Trash |
 | **Duplicate removal** | Find duplicate queued images by their contents |
@@ -61,11 +68,25 @@ confirmation.
 
 ## Install
 
-LGL Papercutter is currently in early development. A Fedora RPM will be made
-available through [GitHub Releases](https://github.com/linuxgamerlife/lgl-papercutter/releases)
-when the first public build is ready.
+The current release is **0.2.0**. Fedora packages are distributed through COPR,
+with release artifacts available from
+[GitHub Releases](https://github.com/linuxgamerlife/lgl-papercutter/releases).
 
-For now, build the application from source.
+The project can also be built directly from source.
+
+---
+
+## What's New in 0.2.0
+
+- Non-destructive Save As workflow: source images are never replaced
+- Itemised confirmation showing every source filename and destination path
+- Optional sequential numbering based on the highest numbered destination file
+- Independent staged composition state for every queued image
+- Target-resolution changes across multiple selected images or the full queue
+- Mixed-resolution indication when a selection contains different staged targets
+- Native desktop file dialogs and improved KDE integration
+
+See [CHANGELOG.md](CHANGELOG.md) for the complete release history.
 
 ---
 
@@ -100,6 +121,9 @@ Run it directly from the build directory:
 Save As renders into a temporary file, validates the requested dimensions, and
 then commits the new destination. It refuses to use the source path as the
 destination, so exporting cannot replace the original image.
+
+Removing an entry from the queue does not change the source file. **Move to
+Trash** is the only source-file mutation and always requires confirmation.
 
 ---
 
