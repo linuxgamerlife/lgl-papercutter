@@ -70,8 +70,23 @@ confirmation.
 
 ## Install
 
-The current release is **0.3.0**. Fedora packages are distributed through COPR,
-with release artifacts available from
+The current release is **0.3.0**.
+
+### Recommended — Fedora COPR
+
+Enable the [LGL Papercutter COPR](https://copr.fedorainfracloud.org/coprs/linuxgamerlife/lgl-papercutter/)
+and install the application:
+
+```bash
+sudo dnf copr enable linuxgamerlife/lgl-papercutter
+sudo dnf install lgl-papercutter
+```
+
+Future releases will then be installed through normal Fedora system updates.
+
+### Manual downloads
+
+RPM and AppImage release artifacts are also available from
 [GitHub Releases](https://github.com/linuxgamerlife/lgl-papercutter/releases).
 
 The project can also be built directly from source.
