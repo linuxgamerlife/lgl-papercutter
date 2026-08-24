@@ -7,6 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Release](https://img.shields.io/badge/release-0.3.0-purple)](CHANGELOG.md)
 [![Fedora](https://img.shields.io/badge/Fedora-44-blue?logo=fedora&logoColor=white)](https://fedoraproject.org)
+[![AppImage](https://img.shields.io/badge/AppImage-available-2C2C2C?logo=appimage&logoColor=white)](https://github.com/linuxgamerlife/lgl-papercutter/releases)
+[![RPM](https://img.shields.io/badge/RPM-available-EE0000?logo=redhat&logoColor=white)](https://github.com/linuxgamerlife/lgl-papercutter/releases)
 [![Qt](https://img.shields.io/badge/Qt-6-green?logo=qt&logoColor=white)](https://www.qt.io)
 
 </div>
