@@ -2,6 +2,24 @@
 
 All notable user-facing changes to LGL Papercutter are recorded here.
 
+## 0.3.0 — 2026-08-24
+
+### Added
+
+- Comprehensive in-app Help explaining toolbar buttons, queue selection,
+  composition controls, staged per-image state, single and batch Save As,
+  numbered output planning, and file-safety behaviour.
+- An About dialog with the Papercutter icon, current application version,
+  project and issue-tracker link, LinuxGamerLife link, MIT licence information,
+  and Ko-fi support link.
+- Help and About actions in both the Help menu and the always-visible More menu.
+
+### Changed
+
+- Clarified that the Delete key is a shortcut for removing selected queue
+  entries and does not delete source images from the computer.
+- Included the standalone help document in source archives and RPM documentation.
+
 ## 0.2.0 — 2026-08-24
 
 ### Added

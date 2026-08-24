@@ -42,6 +42,7 @@
 #include <QSpinBox>
 #include <QSplitter>
 #include <QStatusBar>
+#include <QTextBrowser>
 #include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
@@ -222,6 +223,14 @@ void MainWindow::buildUi()
     settingsMenu->addAction(m_toggleMenuAction);
     addAction(m_toggleMenuAction);
 
+    auto *helpMenu = menuBar()->addMenu(QStringLiteral("&Help"));
+    auto *helpAction = helpMenu->addAction(QStringLiteral("LGL Papercutter &Help"),
+                                           this, &MainWindow::showHelp);
+    helpAction->setShortcut(QKeySequence::HelpContents);
+    helpMenu->addSeparator();
+    auto *aboutAction = helpMenu->addAction(QStringLiteral("&About LGL Papercutter"),
+                                             this, &MainWindow::showAbout);
+
     auto *toolbar = addToolBar(QStringLiteral("Files"));
     toolbar->setMovable(false);
     auto *addAction = toolbar->addAction(
@@ -240,6 +249,9 @@ void MainWindow::buildUi()
     moreButton->setPopupMode(QToolButton::InstantPopup);
     auto *moreMenu = new QMenu(moreButton);
     moreMenu->addAction(saveAsAction);
+    moreMenu->addSeparator();
+    moreMenu->addAction(helpAction);
+    moreMenu->addAction(aboutAction);
     moreMenu->addSeparator();
     moreMenu->addAction(m_toggleMenuAction);
     moreButton->setMenu(moreMenu);
@@ -750,6 +762,77 @@ void MainWindow::setMenuBarVisible(const bool visible)
     if (m_toggleMenuAction->isChecked() != visible)
         m_toggleMenuAction->setChecked(visible);
     m_settings.setMenuBarVisible(visible);
+}
+
+void MainWindow::showHelp()
+{
+    QFile helpFile(QStringLiteral(":/docs/HELP.md"));
+    if (!helpFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, QStringLiteral("Help unavailable"),
+                             QStringLiteral("The LGL Papercutter help file could not be opened."));
+        return;
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(QStringLiteral("LGL Papercutter Help"));
+    dialog.resize(780, 680);
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *browser = new QTextBrowser(&dialog);
+    browser->setOpenExternalLinks(true);
+    browser->setMarkdown(QString::fromUtf8(helpFile.readAll()));
+    layout->addWidget(browser);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+    dialog.exec();
+}
+
+void MainWindow::showAbout()
+{
+    QDialog dialog(this);
+    dialog.setWindowTitle(QStringLiteral("About LGL Papercutter"));
+    dialog.setMinimumWidth(500);
+
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setSpacing(12);
+
+    auto *heading = new QHBoxLayout;
+    auto *icon = new QLabel(&dialog);
+    icon->setPixmap(QIcon(QStringLiteral(":/icons/lgl-papercutter.png"))
+                        .pixmap(QSize(96, 96)));
+    icon->setAlignment(Qt::AlignTop);
+    heading->addWidget(icon);
+
+    auto *identity = new QLabel(
+        QStringLiteral("<h2>LGL Papercutter</h2>"
+                       "<p><b>Version %1</b></p>"
+                       "<p>Compose wallpapers for your display resolution without "
+                       "altering the original images.</p>")
+            .arg(QApplication::applicationVersion()),
+        &dialog);
+    identity->setWordWrap(true);
+    heading->addWidget(identity, 1);
+    layout->addLayout(heading);
+
+    auto *details = new QLabel(
+        QStringLiteral("<p>Images are processed locally and exported as new files. "
+                       "Built with Qt 6 and ImageMagick.</p>"
+                       "<p><a href=\"https://github.com/linuxgamerlife/lgl-papercutter\">"
+                       "Project page and issue tracker</a></p>"
+                       "<p>Made by <a href=\"https://www.youtube.com/@linuxgamerlife\">"
+                       "LinuxGamerLife</a><br>"
+                       "<a href=\"https://ko-fi.com/G2G3V70LW\">Support development on Ko-fi</a>"
+                       "<br>Released under the MIT License.</p>"),
+        &dialog);
+    details->setWordWrap(true);
+    details->setOpenExternalLinks(true);
+    details->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    layout->addWidget(details);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+    dialog.exec();
 }
 
 void MainWindow::removeDuplicates()

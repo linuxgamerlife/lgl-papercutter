@@ -1,5 +1,5 @@
 Name:           lgl-papercutter
-Version:        0.2.0
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Compose wallpapers for a chosen desktop resolution
 
@@ -18,6 +18,7 @@ BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 BuildRequires:  ImageMagick
 Requires:       qt6-qtbase >= 6.5
+Requires:       qt6-qtimageformats
 Requires:       ImageMagick
 
 %description
@@ -47,13 +48,18 @@ appstream-util validate-relax --nonet \
 
 %files
 %license LICENSE
-%doc README.md CHANGELOG.md
+%doc README.md CHANGELOG.md HELP.md
 %{_bindir}/lgl-papercutter
 %{_datadir}/applications/com.linuxgamerlife.lgl-papercutter.desktop
 %{_datadir}/metainfo/com.linuxgamerlife.lgl-papercutter.metainfo.xml
 %{_datadir}/icons/hicolor/512x512/apps/lgl-papercutter.png
 
 %changelog
+* Mon Aug 24 2026 LinuxGamerLife - 0.3.0-1
+- Add in-app Help covering controls, staged editing, exports, and file safety
+- Add an About dialog with project, author, license, and donation links
+- Make Help and About available from both the menu bar and More menu
+
 * Mon Aug 24 2026 LinuxGamerLife - 0.2.0-1
 - Add non-destructive batch Save As with numbered export planning
 - Preserve independent staged compositions and support multi-image resolution changes

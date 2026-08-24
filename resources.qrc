@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/docs">
+        <file alias="HELP.md">HELP.md</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file alias="lgl-papercutter.png">packaging/icons/hicolor/512x512/apps/lgl-papercutter.png</file>
+    </qresource>
+</RCC>

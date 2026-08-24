@@ -5,7 +5,7 @@
 **A simple way to modify wallpapers to make them a better fit for your desktop.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-0.2.0-purple)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-0.3.0-purple)](CHANGELOG.md)
 [![Fedora](https://img.shields.io/badge/Fedora-44-blue?logo=fedora&logoColor=white)](https://fedoraproject.org)
 [![Qt](https://img.shields.io/badge/Qt-6-green?logo=qt&logoColor=white)](https://www.qt.io)
 
@@ -63,12 +63,14 @@ confirmation.
 | **Duplicate removal** | Find duplicate queued images by their contents |
 | **Save As** | Export a separate copy without changing the source |
 | **Local processing** | Process images with ImageMagick without accounts, uploads, or telemetry |
+| **Built-in help** | Explain every control, staged-state behaviour, export logic, and file-safety rule inside the app |
+| **About** | Show the version, project and author links, licence, and Ko-fi support link |
 
 ---
 
 ## Install
 
-The current release is **0.2.0**. Fedora packages are distributed through COPR,
+The current release is **0.3.0**. Fedora packages are distributed through COPR,
 with release artifacts available from
 [GitHub Releases](https://github.com/linuxgamerlife/lgl-papercutter/releases).
 
@@ -76,15 +78,13 @@ The project can also be built directly from source.
 
 ---
 
-## What's New in 0.2.0
+## What's New in 0.3.0
 
-- Non-destructive Save As workflow: source images are never replaced
-- Itemised confirmation showing every source filename and destination path
-- Optional sequential numbering based on the highest numbered destination file
-- Independent staged composition state for every queued image
-- Target-resolution changes across multiple selected images or the full queue
-- Mixed-resolution indication when a selection contains different staged targets
-- Native desktop file dialogs and improved KDE integration
+- Comprehensive built-in Help explaining the controls and complete workflow
+- Clear guidance for staged edits, multi-selection, numbered exports, and file safety
+- About dialog showing the app version, project page, author, MIT licence, and
+  Ko-fi support link
+- Help and About entries in both the full menu bar and the always-visible More menu
 
 See [CHANGELOG.md](CHANGELOG.md) for the complete release history.
 

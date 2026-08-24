@@ -44,6 +44,8 @@ private:
     void removeDuplicates();
     void saveAsCurrent();
     void saveSelectedAs();
+    void showHelp();
+    void showAbout();
     void setMenuBarVisible(bool visible);
     void loadCurrentJob(int row);
     void applyTargetResolutionToSelection();

@@ -2,7 +2,7 @@ NAME := lgl-papercutter
 SPEC := packaging/$(NAME).spec
 VERSION := $(shell awk '/^Version:/ { print $$2; exit }' $(SPEC))
 SOURCE_ARCHIVE := $(NAME)-$(VERSION).tar.gz
-SOURCE_FILES := .copr .github .gitignore CHANGELOG.md CMakeLists.txt LICENSE Makefile README.md \
+SOURCE_FILES := .copr .github .gitignore CHANGELOG.md CMakeLists.txt HELP.md LICENSE Makefile README.md resources.qrc \
 	packaging src tests
 .DEFAULT_GOAL := srpm
 
