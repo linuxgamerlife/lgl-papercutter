@@ -171,20 +171,6 @@ Ubuntu 24.04 and Linux Mint 22 ship older GTK libraries and cannot build 0.4.x f
 source. The old Qt implementation is retained under `legacy/qt/` as read-only
 historical reference; it is not built, tested, packaged, or a runtime dependency.
 
-### Build a portable AppImage
-
-The portable AppImage builder uses a private GTK 4.20 stack under `build/` and
-writes the finished artifact to `results/`. It does not alter application
-source files:
-
-```bash
-distrobox enter ubuntu-dev1 -- bash -lc \
-  'cd /run/host/development/projects/lgl-papercutter && packaging/appimage/build-portable-appimage.sh'
-```
-
-See [AppImage packaging](packaging/appimage/README.md) for the required
-container packages and the Fedora-specific AppImage builder.
-
 ---
 
 ## File Safety
