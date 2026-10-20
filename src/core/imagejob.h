@@ -1,22 +1,21 @@
 #pragma once
 
-#include "core/compositionstate.h"
+#include "core/composition.h"
 
-#include <QSize>
-#include <QString>
+#include <string>
 
 namespace papercutter {
 
 struct ImageMetadata {
-    QString description;
-    QString artist;
-    QString copyright;
-    QString comment;
+    std::string description;
+    std::string artist;
+    std::string copyright;
+    std::string comment;
 
     bool isEmpty() const
     {
-        return description.isEmpty() && artist.isEmpty()
-            && copyright.isEmpty() && comment.isEmpty();
+        return description.empty() && artist.empty()
+            && copyright.empty() && comment.empty();
     }
 };
 
@@ -30,16 +29,25 @@ enum class JobStatus {
 };
 
 struct ImageJob {
-    QString sourcePath;
-    QSize sourceSize;
+    std::string sourcePath;
+    Size sourceSize;
     CompositionState composition;
     int outputQuality{95};
     ImageMetadata metadata;
     bool metadataEdited{false};
     JobStatus status{JobStatus::AwaitingReview};
-    QString errorMessage;
+    std::string errorMessage;
 
-    QString displayName() const;
+    std::string displayName() const;
 };
+
+// Extension without the dot ("" when there is none), like QFileInfo::suffix().
+std::string rawFileSuffix(const std::string &path);
+
+// rawFileSuffix() in lower case.
+std::string fileSuffix(const std::string &path);
+
+// True for the formats Papercutter reads and writes: jpg, jpeg, png and webp.
+bool isSupportedSuffix(const std::string &suffix);
 
 } // namespace papercutter

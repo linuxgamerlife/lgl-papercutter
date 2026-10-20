@@ -2,7 +2,7 @@
 <gresources>
   <gresource prefix="/com/linuxgamerlife/papercutter">
     <file>style.css</file>
-    <!-- Resolved from the repository root through a second -sourcedir. -->
+    <!-- Resolved from the repository root through a second source directory. -->
     <file>HELP.md</file>
     <!-- The official app icon, shown in the header bar and About. -->
     <file alias="lgl-papercutter.png">packaging/icons/256x256/lgl-papercutter.png</file>

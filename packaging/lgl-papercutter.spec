@@ -9,8 +9,7 @@ URL:            https://github.com/linuxgamerlife/lgl-papercutter
 # COPR SCM builds do not require a Git tag.
 Source0:        %{name}-%{version}.tar.gz
 
-# The root CMakeLists.txt builds the GTK 4 application in gtk/; the Qt sources
-# in src/ and tests/ are not built.
+# The root CMakeLists.txt builds the maintained GTK 4 application from src/.
 
 BuildRequires:  cmake >= 3.20
 BuildRequires:  cmake-rpm-macros
@@ -18,6 +17,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  ninja-build
 BuildRequires:  pkgconfig(gtkmm-4.0) >= 4.20
 BuildRequires:  pkgconfig(libadwaita-1) >= 1.6
+BuildRequires:  pkgconfig(json-glib-1.0)
 BuildRequires:  glib2-devel
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib

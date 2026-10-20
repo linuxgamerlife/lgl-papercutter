@@ -96,6 +96,20 @@ Future releases will then be installed through normal Fedora system updates.
 RPM and AppImage release artifacts are also available from
 [GitHub Releases](https://github.com/linuxgamerlife/lgl-papercutter/releases).
 
+The portable x86_64 AppImage is named
+`LGL-Papercutter-<version>-x86_64.AppImage`. It bundles the GTK runtime,
+ImageMagick, Exiv2, image loaders, and required schemas, so it does not need
+distribution packages for Papercutter. Mark it executable and launch it:
+
+```bash
+chmod +x LGL-Papercutter-<version>-x86_64.AppImage
+./LGL-Papercutter-<version>-x86_64.AppImage
+```
+
+It is built for current x86_64 Linux distributions. See
+[AppImage packaging](packaging/appimage/README.md) for reproducible builds and
+compatibility details.
+
 The project can also be built directly from source.
 
 ---
@@ -125,15 +139,16 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete release history.
 
 ## Build from Source
 
-Papercutter is a GTK 4 and libadwaita application in the `gtk/` folder, built from the
-repository root. It
-requires gtkmm 4.20 and libadwaita 1.6 or newer, and supports both ImageMagick 7's `magick` command and ImageMagick 6's
+Papercutter is a GTK 4 and libadwaita application built by the root CMake
+configuration. Its maintained code is in `src/`, resources in `data/`, and tests
+in `tests/`. It requires gtkmm 4.20, libadwaita 1.6, and JSON-GLib or newer,
+and supports both ImageMagick 7's `magick` command and ImageMagick 6's
 `convert` command. Exiv2 is used for image attributes.
 
 Install the dependencies on Fedora 44:
 
 ```bash
-sudo dnf install cmake gcc-c++ gtkmm4.0-devel libadwaita-devel ImageMagick exiv2
+sudo dnf install cmake gcc-c++ gtkmm4.0-devel libadwaita-devel json-glib-devel ImageMagick exiv2
 ```
 
 Clone, build, and test:
@@ -141,7 +156,7 @@ Clone, build, and test:
 ```bash
 git clone https://github.com/linuxgamerlife/lgl-papercutter.git
 cd lgl-papercutter
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build -j$(nproc)
 ctest --test-dir build --output-on-failure
 ```
@@ -153,8 +168,22 @@ Run it directly from the build directory:
 ```
 
 Ubuntu 24.04 and Linux Mint 22 ship older GTK libraries and cannot build 0.4.x from
-source. The previous Qt version (0.3.1) remains available from
-[GitHub Releases](https://github.com/linuxgamerlife/lgl-papercutter/releases).
+source. The old Qt implementation is retained under `legacy/qt/` as read-only
+historical reference; it is not built, tested, packaged, or a runtime dependency.
+
+### Build a portable AppImage
+
+The portable AppImage builder uses a private GTK 4.20 stack under `build/` and
+writes the finished artifact to `results/`. It does not alter application
+source files:
+
+```bash
+distrobox enter ubuntu-dev1 -- bash -lc \
+  'cd /run/host/development/projects/lgl-papercutter && packaging/appimage/build-portable-appimage.sh'
+```
+
+See [AppImage packaging](packaging/appimage/README.md) for the required
+container packages and the Fedora-specific AppImage builder.
 
 ---
 

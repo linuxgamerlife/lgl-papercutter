@@ -15,16 +15,16 @@ jobs:
 
     steps:
       - name: Install tools
-        run: dnf install -y git cmake gcc-c++ gtkmm4.0-devel libadwaita-devel ImageMagick exiv2
+        run: dnf install -y git cmake gcc-c++ gtkmm4.0-devel libadwaita-devel json-glib-devel ImageMagick exiv2
 
       - name: Check out source
         uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -B build-ci -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 
       - name: Build
-        run: cmake --build build-ci --parallel 2
+        run: cmake --build build --parallel 2
 
       - name: Test
-        run: ctest --test-dir build-ci --output-on-failure
+        run: ctest --test-dir build --output-on-failure
